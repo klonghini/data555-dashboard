@@ -1,0 +1,328 @@
+---
+title: "Comparison of prostate cancer characteristics in transgender females (TF) and cisgender males (CM)"
+date: "`r format(Sys.Date(), '%b %d %Y')`"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+---
+
+Note: Due to the confidential nature of the data for my thesis, my DATA 555 project uses a mock data set with the same sample size, variables of interest, and variable value ranges as my thesis data. Similar, but not exact, distributions for the variables were simulated. This was done to protect the identities of participants in my thesis project. 
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(plotly)
+library(ggplot2)
+library(highcharter)
+# Install thematic and un-comment for themed static plots (i.e., ggplot2)
+# thematic::thematic_rmd()
+```
+
+
+```{r mock data, include=FALSE}
+# Generated mock data set for thesis project 
+set.seed(42)  # For reproducibility
+
+# Number of participants
+n <- 747
+
+# Generate subgroup with 5% TF and 95% CM
+subgroup <- sample(c("TF", "CM"), size = n, replace = TRUE, prob = c(0.05, 0.95))
+
+# Generate increasing dxdate distribution (more recent dates are more common)
+start_date <- as.Date("1991-01-01")
+end_date <- as.Date("2024-01-01")
+
+# Create an increasing distribution over time using an exponential function
+years <- seq(1991, 2024, by = 1)
+weights <- seq(1, length(years), by = 1)  # Increasing frequency over time
+year_selected <- sample(years, size = n, replace = TRUE, prob = weights)
+month_selected <- sample(1:12, size = n, replace = TRUE)
+day_selected <- sample(1:28, size = n, replace = TRUE)  # Avoiding issues with 29-31
+
+dxdate <- as.Date(paste(year_selected, month_selected, day_selected, sep = "-"))
+
+# Generate right-skewed ssf1 with the highest density between 50-100
+ssf1_raw <- rgamma(n, shape = 2, scale = 50)  # Right-skewed gamma distribution
+ssf1 <- round(pmin(ssf1_raw, 980))  # Scale within 1-980, round to integers
+
+# Generate right-skewed ssf7 with the most common value being 33
+ssf7_values <- c(33, 34, 35, 43, 44, 45, 53, 54, 55)
+ssf7_probs <- c(0.5, 0.1, 0.1, 0.07, 0.07, 0.07, 0.03, 0.03, 0.03)  # Skewed towards 33
+ssf7 <- sample(ssf7_values, size = n, replace = TRUE, prob = ssf7_probs)
+
+# Generate seerSummaryStage with ~50% being 1
+seerSummaryStage_values <- c(1, 2, 3, 4, 5, 6, 7, 8, 9)
+seerSummaryStage_probs <- c(0.5, 0.08, 0.08, 0.08, 0.08, 0.06, 0.04, 0.04, 0.04)  # ~50% for 1, rest distributed
+seerSummaryStage <- sample(seerSummaryStage_values, size = n, replace = TRUE, prob = seerSummaryStage_probs)
+
+# Create data frame
+mock_data <- data.frame(
+  subgroup = subgroup,
+  dxdate = dxdate,
+  seerSummaryStage = seerSummaryStage,
+  ssf1 = ssf1,
+  ssf7 = ssf7
+)
+
+```
+
+
+```{r data cleaning, include=FALSE}
+library(haven)
+prostate_cancer_cases <- mock_data
+
+pacman::p_load(janitor, tidyverse, rio, dplyr, here, knitr, esquisse, labelled, gtsummary, ggplot2)
+
+# Removing cases with missing diagnosis date
+prostate_cancer_cases_analysis <- prostate_cancer_cases |>
+  filter(!is.na(dxdate))
+prostate_cancer_cases_analysis |> janitor::clean_names()
+
+# Data cleaning
+
+prostate_analysis_1 <- prostate_cancer_cases_analysis |>
+  mutate(stage_category = case_when(
+    seerSummaryStage == 1 ~ 1,
+    seerSummaryStage %in% 2:4 ~ 2,
+    seerSummaryStage == 7 ~ 3,
+    seerSummaryStage == 9 ~ 4,
+    TRUE ~ NA_real_
+  )) |>
+  mutate(year_category = case_when(
+    dxdate < as.Date("2004-01-01") ~ 1,
+    dxdate >= as.Date("2004-01-01") & dxdate <= as.Date("2008-12-31") ~ 2,
+    dxdate >= as.Date("2009-01-01") & dxdate <= as.Date("2013-12-31") ~ 3,
+    dxdate >= as.Date("2014-01-01") & dxdate <= as.Date("2018-12-31") ~ 4,
+    dxdate >= as.Date("2019-01-01") ~ 5,
+    TRUE ~ NA_real_
+  )) |>
+  mutate(stage1 = factor(stage_category, levels = c(1, 2, 3, 4), 
+                         labels = c("Localized", "Regional", "Distant", "Unknown"))) |>
+  mutate(year1 = factor(year_category, levels = c(1, 2, 3, 4, 5), 
+                        labels = c("Pre-2004", "2004-2008", "2009-2013", "2014-2018", "2019-2024")))
+
+var_label(prostate_analysis_1) <- list(
+  stage1 = "Stage at diagnosis",
+  year1 = "Year of diagnosis"
+)
+
+# Divide all SSF1 values by 10, to get their values in ng/mL
+prostate_analysis_1 <- prostate_analysis_1 |>
+  mutate(ssf1_ngml = ssf1/10)
+
+
+# Categorize SSF1 and SSF7
+prostate_analysis_1 <- prostate_analysis_1 |>
+  mutate(ssf1_category = case_when(
+    is.na(ssf1_ngml) ~ NA_real_,  
+    ssf1_ngml < 5 ~ 1,
+    ssf1_ngml >= 5 & ssf1_ngml <= 10 ~ 2,
+    ssf1_ngml > 10 & ssf1_ngml <= 20 ~ 3,
+    ssf1_ngml > 20 ~ 4
+  ))
+  
+ssf1_summary <- prostate_analysis_1 |>
+  filter(!is.na(ssf1_category)) |> 
+  group_by(subgroup, ssf1_category) |>
+  summarize(
+    count = n(),
+    mean_psa = mean(ssf1_ngml, na.rm = TRUE), 
+    sd_psa = sd(ssf1_ngml, na.rm = TRUE),      
+    .groups = 'drop'
+  ) |>
+  group_by(subgroup) |>
+  mutate(percent = (count / sum(count)) * 100) |>
+  ungroup() 
+
+ssf1_summary1 <- ssf1_summary |> 
+  filter(!is.na(ssf1_category)) |> 
+  mutate(ssf1_category_factor = factor(ssf1_category, 
+                                       levels = c(1, 2, 3, 4),
+                                       labels = c("<5", "5-10", "11-20", "21+")))
+
+ssf1_summary1$subgroup <- factor(ssf1_summary1$subgroup, levels = c("TF", "CM"))
+
+
+table(prostate_analysis_1$ssf7, useNA="ifany")
+
+prostate_analysis_1 <- prostate_analysis_1 |>
+  mutate(
+    ssf7_category_1 = case_when(
+      ssf7 == 33 ~ 1,
+      ssf7 == 34 ~ 2,
+      ssf7 == 43 ~ 3,
+      ssf7 == 35 | ssf7 == 44 ~ 4,
+      ssf7 > 44 ~ 5
+    ))
+
+ssf7_summary_1 <- prostate_analysis_1 |>
+  filter(!is.na(ssf7_category_1)) |> 
+  group_by(subgroup, ssf7_category_1) |>
+  summarize(count = n(), .groups = 'drop') |>
+  group_by(subgroup) |>
+  mutate(percent = (count / sum(count)) * 100) |>
+  ungroup() 
+
+ssf7_summary1_1 <- ssf7_summary_1 |> 
+  filter(!is.na(ssf7_category_1)) |> 
+  mutate(ssf7_category_factor = factor(ssf7_category_1, 
+                                       levels = c(1, 2, 3, 4, 5),
+                                       labels = c("3/3", "3/4", "4/3", "3/5 or 4/4", "4/5+")))
+
+ssf7_summary1_1$subgroup <- factor(ssf7_summary1_1$subgroup, levels = c("TF", "CM"))
+
+
+var_label(ssf1_summary1) <- list(
+  percent = "Percent",
+  count = "Count",
+  ssf1_category_factor = "PSA level in ng/mL",
+  subgroup = "Subgroup"
+)
+var_label(ssf7_summary1_1) <- list(
+  percent = "Percent",
+  count = "Count",
+  ssf7_category_factor = "Gleason score (grade)",
+  subgroup = "Subgroup"
+)
+
+prostate_analysis_1 <- prostate_analysis_1 %>%
+  mutate(year = as.Date(paste0(substr(dxdate, 1, 4), "-01-01")))
+
+# Filter out "unknown" and calculate counts per stage by year
+df_counts <- prostate_analysis_1 %>%
+  filter(stage1 != "Unknown") %>% 
+  group_by(year, stage1) %>%
+  summarise(count = n()) %>%
+  ungroup()
+df_counts$year <- year(df_counts$year)
+
+
+# Perform the Mann-Whitney U test for PSA (ssf1)
+
+# Filter rows where both ssf1 and group are non-NA
+ssf1_clean <- prostate_analysis_1[complete.cases(prostate_analysis_1$ssf1, prostate_analysis_1$subgroup), ]
+
+group_CM_ssf1 <- ssf1_clean$ssf1[ssf1_clean$subgroup == "CM"]
+group_TF_ssf1 <- ssf1_clean$ssf1[ssf1_clean$subgroup == "TF"]
+
+ssf1_wilcox_result <- wilcox.test(group_CM_ssf1, group_TF_ssf1, correct=FALSE)
+
+# Print the result
+print(ssf1_wilcox_result)
+      
+
+
+
+# Perform the Mann-Whitney U test for Gleason (ssf7)
+
+# Filter rows where both ssf7 and group are non-NA
+ssf7_clean <- prostate_analysis_1[complete.cases(prostate_analysis_1$ssf7, prostate_analysis_1$subgroup), ]
+
+group_CM_ssf7 <- ssf7_clean$ssf7[ssf7_clean$subgroup == "CM"]
+group_TF_ssf7 <- ssf7_clean$ssf7[ssf7_clean$subgroup == "TF"]
+
+ssf7_wilcox_result <- wilcox.test(group_CM_ssf7, group_TF_ssf7, correct=FALSE)
+
+# Print the result
+print(ssf7_wilcox_result)
+
+```
+
+
+
+Column {data-width=400}
+-----------------------------------------------------------------------
+
+### Figure 1
+
+```{r psa, fig.cap="Wilcoxon rank sum test p-value = 0.6935"}
+psa_plot <- ggplot(ssf1_summary1, 
+                   aes(x = ssf1_category_factor, 
+                       y = percent, 
+                       fill = subgroup, 
+                       text = paste0("PSA level: ", ssf1_category_factor, " ng/mL",
+                                     "<br>Mean: ", sprintf("%.2f", mean_psa), " ng/mL",
+                                     "<br>Standard deviation: ", sprintf("%.2f", sd_psa), " ng/mL",
+                                     "<br>Gender identity: ", subgroup,
+                                     "<br>Participant count by gender identity: ", count, 
+                                     "<br>Percent of participants by gender identity: ", sprintf("%.2f", percent), "%"))) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(y = "Percent (%)", 
+       x = "PSA (ng/mL)", 
+       fill = "Gender identity", 
+       title = "Figure 1. Distribution of prostate-specific antigen (PSA) levels by gender identity",
+       caption = "Wilcoxon rank sum test p-value = 0.2792") +
+  scale_y_continuous(breaks = seq(0, 100, by = 10),
+                     labels = seq(0, 100, by = 10)) +
+  scale_fill_viridis_d(option = "plasma", begin = 0, end = 0.8) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),  
+        plot.caption = element_text(hjust = 0))   
+
+psa_plotly <- ggplotly(psa_plot, tooltip = "text")
+psa_plotly
+```
+Description: This interactive bar plot indicates that there is no statistically significant difference in PSA levels at prostate cancer diagnosis among TF and CM, based on their similar distributions across the four categories. The percents of participants at the <5 ng/mL, 5-10 ng/mL, and 11-20 ng/mL levels are similar, but there are notably less participants with a PSA level of 21+ ng/mL. Elevated PSA indicates risk of prostate cancer and all participants in this study have had a prostate cancer diagnosis, therefore it is not surprising that there are many participants with PSA levels above the generally accepted abnormal level of 4.0 ng/mL. 
+
+
+### Figure 2
+
+```{r gleason, fig.cap="Wilcoxon rank sum test p-value = 0.8221"}
+gleason_plot_1 <- ggplot(ssf7_summary1_1, 
+                     aes(x = ssf7_category_factor, 
+                       y = percent, 
+                       fill = subgroup, 
+                       text = paste0("Gleason score: ", ssf7_category_factor, " (grade)",
+                                     "<br>Gender identity: ", subgroup,
+                                    "<br>Participant count by gender identity: ", count, 
+                                     "<br>Percent of participants by gender identity: ", sprintf("%.2f", percent), "%"))) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(y = "Percent (%)", 
+       x = "Gleason score (grade)", 
+       fill = "Gender identity", 
+       title = "Figure 2. Distribution of Gleason scores by gender identity",
+       caption = "Wilcoxon rank sum test p-value = 0.3618") +
+  scale_y_continuous(breaks = seq(0, 100, by = 10),
+                     labels = seq(0, 100, by = 10)) +
+  scale_fill_viridis_d(option = "plasma", begin = 0, end = 0.8) +
+  theme_bw() +
+  theme(plot.title = element_text(face = "bold"),
+        legend.title = element_text(face = "bold"),  
+        plot.caption = element_text(hjust = 0))   
+
+gleason_plotly <- ggplotly(gleason_plot_1, tooltip = "text")
+gleason_plotly
+```
+
+Description: This interactive bar plot indicates that there is no statistically significant difference in Gleason scores at prostate cancer diagnosis among TF and CM, based on their similar distributions across the five categories. This means that the aggressiveness of prostate cancer--how likely it is to advance and spread--is similar among gender identities. Notably, around 50% of both gender identities have a Gleason score of 3/3, which indicates low-grade prostate cancer among half of the sample. 
+
+
+Column {data-width=700}
+-----------------------------------------------------------------------
+
+### Figure 3
+
+```{r highcharter, fig.width=10, fig.height=6}
+hchart(df_counts, "line", 
+       hcaes(x = year, y = count, group = stage1)) %>%
+  hc_plotOptions(line = list(marker = list(radius = 0))) %>%
+  hc_title(text = "Figure 3. Number of participants diagnosed by prostate cancer stage over time",
+           style = list(fontWeight = "bold", fontSize = "20px")) %>%
+  hc_yAxis(title = list(text = "Participant count")) %>%
+  hc_xAxis(title = list(text = "Year of diagnosis"),
+           plotLines = list(
+             list(
+               value = 2014, 
+               color = "brown", 
+               width = 2, 
+               dashStyle = "Dash", 
+               label = list(text = "2014", align = "left", style = list(color = "black"))))) %>%
+ hc_legend(title = list(text = "Stage at diagnosis"),
+            align = "right",  
+            verticalAlign = "middle", 
+            layout = "vertical")
+```
+Description: This interactive line chart depicts an overall increase in prostate cancer diagnoses over time in the sample. Visualizing the stage at diagnosis over time shows that the most diagnoses are localized prostate cancer, followed by regional, then distant. Although this is simulated data, regression analyses in my thesis have indicated that a more recent prostate cancer diagnosis (2014-2024) is associated with a higher prevalence of advanced stage prostate cancer (regional and distant), therefore the line at 2014 aids in visualizing stage at diagnosis before and after 2014. 
+
