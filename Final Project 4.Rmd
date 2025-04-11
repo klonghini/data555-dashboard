@@ -1,5 +1,6 @@
 ---
 title: "Comparison of prostate cancer characteristics by gender identity"
+author: "Kelly Longhini"
 date: "`r format(Sys.Date(), '%b %d %Y')`"
 output: 
   flexdashboard::flex_dashboard:
@@ -11,10 +12,11 @@ output:
 
 Page 1
 ==================
+ **This project compares prostate cancer characteristics in transgender females (TF) and cisgender males (CM).**
 
-**This project compares prostate cancer characteristics in transgender females (TF) and cisgender males (CM).**
+Due to the confidential nature of the data for my thesis, this DATA 555 project uses a mock dataset with the same sample size, variables of interest, and variable value ranges as the thesis data. Similar, but not exact, distributions for the variables were simulated. This was done to protect the identities of participants in my thesis project. 
 
-Note: Due to the confidential nature of the data for my thesis, my DATA 555 project uses a mock data set with the same sample size, variables of interest, and variable value ranges as my thesis data. Similar, but not exact, distributions for the variables were simulated. This was done to protect the identities of participants in my thesis project. 
+GitHub repository link: ________________________________________
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
@@ -370,5 +372,5 @@ Page 2
 
 The thesis that this dashboard is based on includes participants from the expanded “Study of Transition, Outcomes and Gender” (STRONG) cohort [note: the dataset is confidential and this project uses a mock dataset]. The original study (STRONG 1.0) was initiated in September 2013 as an electronic health record-based cohort study of transgender and gender diverse people (TGD) enrolled in three Kaiser Permanente (KP) health plans in Georgia (KPGA), Northern California (KPNC), and Southern California (KPSC) between 2006 and 2014. The expanded cohort (STRONG 2.0) includes additional TGD cohort members identified through 2024 and incorporates data from a new KP site serving the Mid-Atlantic States (KPMAS) including Maryland, Virginia, and the District of Columbia.
 
-The thesis includes data on transgender females (TF) and cisgender males (CM) of all ages with a prostate cancer diagnosis from 1991 to 2024, who were identified through links to tumor registries at participating KP sites. After excluding participants with a missing prostate cancer diagnosis date, 747 participants made up the analytic sample, with 5% TF and 95% CM. 
+The thesis includes data on transgender females (TF) and cisgender males (CM) of all ages with a prostate cancer diagnosis from 1991 to 2024, who were identified through links to tumor registries at participating KP sites. After excluding participants with a missing prostate cancer diagnosis date and stage, 747 participants made up the analytic sample, with 5% TF and 95% CM. 
 
