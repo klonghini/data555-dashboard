@@ -1,21 +1,30 @@
 ---
-title: "Comparison of prostate cancer characteristics in transgender females (TF) and cisgender males (CM)"
+title: "Comparison of prostate cancer characteristics by gender identity"
 date: "`r format(Sys.Date(), '%b %d %Y')`"
 output: 
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: fill
+    theme: united
+    css: styles.css
 ---
+
+Page 1
+==================
+
+**This project compares prostate cancer characteristics in transgender females (TF) and cisgender males (CM).**
 
 Note: Due to the confidential nature of the data for my thesis, my DATA 555 project uses a mock data set with the same sample size, variables of interest, and variable value ranges as my thesis data. Similar, but not exact, distributions for the variables were simulated. This was done to protect the identities of participants in my thesis project. 
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
+library(htmlwidgets)
 library(plotly)
 library(ggplot2)
 library(highcharter)
-# Install thematic and un-comment for themed static plots (i.e., ggplot2)
-# thematic::thematic_rmd()
+library(stringr)
+library(ggtext)
+
 ```
 
 
@@ -230,11 +239,10 @@ print(ssf7_wilcox_result)
 ```
 
 
-
-Column {data-width=400}
+Row
 -----------------------------------------------------------------------
 
-### Figure 1
+### Figure 1: Distribution of prostate-specific antigen (PSA) levels by gender identity
 
 ```{r psa, fig.cap="Wilcoxon rank sum test p-value = 0.6935"}
 psa_plot <- ggplot(ssf1_summary1, 
@@ -251,8 +259,7 @@ psa_plot <- ggplot(ssf1_summary1,
   labs(y = "Percent (%)", 
        x = "PSA (ng/mL)", 
        fill = "Gender identity", 
-       title = "Figure 1. Distribution of prostate-specific antigen (PSA) levels by gender identity",
-       caption = "Wilcoxon rank sum test p-value = 0.2792") +
+      title = "Figure 1. Distribution of prostate-specific antigen (PSA) levels by gender identity") +
   scale_y_continuous(breaks = seq(0, 100, by = 10),
                      labels = seq(0, 100, by = 10)) +
   scale_fill_viridis_d(option = "plasma", begin = 0, end = 0.8) +
@@ -261,13 +268,36 @@ psa_plot <- ggplot(ssf1_summary1,
         legend.title = element_text(face = "bold"),  
         plot.caption = element_text(hjust = 0))   
 
-psa_plotly <- ggplotly(psa_plot, tooltip = "text")
+psa_plotly <- ggplotly(psa_plot, tooltip = "text") %>%
+   layout(
+     autosize = TRUE
+     # margin = list(l=50, r=50, t=50, b=50)
+    )
+
+#flexdashboard layout plotly title resize to window 
+
+# onRender(psa_plotly, "
+# function(el, x) {
+#   function resizeTitle() {
+#     var width = el.offsetWidth;
+#     var fontSize = Math.max(14, Math.min(28, width / 25));
+#     if (layout && layout.title) {
+#       layout.title.font.size = fontSize;
+#       Plotly.relayout(el, { 'title.font.size': fontSize });
+#     }
+#   }
+#   resizeTitle();
+#   window.addEventListener('resize', resizeTitle);
+# }
+# ")
+
 psa_plotly
 ```
-Description: This interactive bar plot indicates that there is no statistically significant difference in PSA levels at prostate cancer diagnosis among TF and CM, based on their similar distributions across the four categories. The percents of participants at the <5 ng/mL, 5-10 ng/mL, and 11-20 ng/mL levels are similar, but there are notably less participants with a PSA level of 21+ ng/mL. Elevated PSA indicates risk of prostate cancer and all participants in this study have had a prostate cancer diagnosis, therefore it is not surprising that there are many participants with PSA levels above the generally accepted abnormal level of 4.0 ng/mL. 
+
+This interactive bar plot indicates that there is no statistically significant difference in PSA levels at prostate cancer diagnosis among TF and CM, based on their similar distributions across the four categories. The percents of participants at the <5 ng/mL, 5-10 ng/mL, and 11-20 ng/mL levels are similar, but there are notably less participants with a PSA level of 21+ ng/mL. Elevated PSA indicates risk of prostate cancer and all participants in this study have had a prostate cancer diagnosis, therefore it is not surprising that there are many participants with PSA levels above the generally accepted abnormal level of 4.0 ng/mL. 
 
 
-### Figure 2
+### Figure 2: Distribution of Gleason scores by gender identity
 
 ```{r gleason, fig.cap="Wilcoxon rank sum test p-value = 0.8221"}
 gleason_plot_1 <- ggplot(ssf7_summary1_1, 
@@ -282,8 +312,7 @@ gleason_plot_1 <- ggplot(ssf7_summary1_1,
   labs(y = "Percent (%)", 
        x = "Gleason score (grade)", 
        fill = "Gender identity", 
-       title = "Figure 2. Distribution of Gleason scores by gender identity",
-       caption = "Wilcoxon rank sum test p-value = 0.3618") +
+       title = "Figure 2. Distribution of Gleason scores by gender identity") +
   scale_y_continuous(breaks = seq(0, 100, by = 10),
                      labels = seq(0, 100, by = 10)) +
   scale_fill_viridis_d(option = "plasma", begin = 0, end = 0.8) +
@@ -296,18 +325,20 @@ gleason_plotly <- ggplotly(gleason_plot_1, tooltip = "text")
 gleason_plotly
 ```
 
-Description: This interactive bar plot indicates that there is no statistically significant difference in Gleason scores at prostate cancer diagnosis among TF and CM, based on their similar distributions across the five categories. This means that the aggressiveness of prostate cancer--how likely it is to advance and spread--is similar among gender identities. Notably, around 50% of both gender identities have a Gleason score of 3/3, which indicates low-grade prostate cancer among half of the sample. 
+This interactive bar plot indicates that there is no statistically significant difference in Gleason scores at prostate cancer diagnosis among TF and CM, based on their similar distributions across the five categories. This means that the aggressiveness of prostate cancer--how likely it is to advance and spread--is similar among gender identities. Notably, around 50% of both gender identities have a Gleason score of 3/3, which indicates low-grade prostate cancer among half of the sample. 
 
 
-Column {data-width=700}
+Row
 -----------------------------------------------------------------------
 
-### Figure 3
+### Figure 3: Number of participants diagnosed by prostate cancer stage over time
 
-```{r highcharter, fig.width=10, fig.height=6}
+```{r highcharter, fig.cap = "This interactive line chart depicts an overall increase in prostate cancer diagnoses over time in the sample. Visualizing the stage at diagnosis over time shows that the most diagnoses are localized prostate cancer, followed by regional, then distant. Although this is simulated data, regression analyses in my thesis have indicated that a more recent prostate cancer diagnosis (2014-2024) is associated with a higher prevalence of advanced stage prostate cancer (regional and distant), therefore the line at 2014 aids in visualizing stage at diagnosis before and after 2014."}
+
 hchart(df_counts, "line", 
        hcaes(x = year, y = count, group = stage1)) %>%
   hc_plotOptions(line = list(marker = list(radius = 0))) %>%
+  hc_chart(marginBottom = 80, marginLeft = 80) %>%
   hc_title(text = "Figure 3. Number of participants diagnosed by prostate cancer stage over time",
            style = list(fontWeight = "bold", fontSize = "20px")) %>%
   hc_yAxis(title = list(text = "Participant count")) %>%
@@ -324,5 +355,20 @@ hchart(df_counts, "line",
             verticalAlign = "middle", 
             layout = "vertical")
 ```
-Description: This interactive line chart depicts an overall increase in prostate cancer diagnoses over time in the sample. Visualizing the stage at diagnosis over time shows that the most diagnoses are localized prostate cancer, followed by regional, then distant. Although this is simulated data, regression analyses in my thesis have indicated that a more recent prostate cancer diagnosis (2014-2024) is associated with a higher prevalence of advanced stage prostate cancer (regional and distant), therefore the line at 2014 aids in visualizing stage at diagnosis before and after 2014. 
+
+
+Row {data-height=200}
+-----------------------------------------------------------------------
+
+### Real-world impact
+
+A primary issue in transgender health is access to transgender-specific healthcare, including age- and natal sex-specific cancer screening and monitoring of risk factors. This study intends fill a gap in understanding prostate cancer characteristics among TF, and provide evidence of the need for increased access to transgender healthcare and the need for physicians to better educate transwomen about monitoring prostate health.
+
+Page 2
+==================
+**Data Description**
+
+The thesis that this dashboard is based on includes participants from the expanded “Study of Transition, Outcomes and Gender” (STRONG) cohort [note: the dataset is confidential and this project uses a mock dataset]. The original study (STRONG 1.0) was initiated in September 2013 as an electronic health record-based cohort study of transgender and gender diverse people (TGD) enrolled in three Kaiser Permanente (KP) health plans in Georgia (KPGA), Northern California (KPNC), and Southern California (KPSC) between 2006 and 2014. The expanded cohort (STRONG 2.0) includes additional TGD cohort members identified through 2024 and incorporates data from a new KP site serving the Mid-Atlantic States (KPMAS) including Maryland, Virginia, and the District of Columbia.
+
+The thesis includes data on transgender females (TF) and cisgender males (CM) of all ages with a prostate cancer diagnosis from 1991 to 2024, who were identified through links to tumor registries at participating KP sites. After excluding participants with a missing prostate cancer diagnosis date, 747 participants made up the analytic sample, with 5% TF and 95% CM. 
 
