@@ -16,7 +16,7 @@ Page 1
 
 Due to the confidential nature of the data for my thesis, this DATA 555 project uses a mock dataset with the same sample size, variables of interest, and variable value ranges as my thesis data. Similar, but not exact, distributions for the variables were simulated. This was done to protect the identities of participants in my thesis project. 
 
-GitHub repository link: https://klonghini.github.io/data555-dashboard/
+GitHub repository link: https://github.com/klonghini/data555-dashboard
 
 ```{r setup, include=FALSE}
 library(flexdashboard)
